@@ -1,0 +1,3 @@
+DB_CONNECT_KEY=mongodb+srv://suranaprateek20120468_db_user:PratsCR7@blockgo.p1nivsf.mongodb.net/?appName=BlockGo
+PORT=3000
+JWT_KEY=c51d70c0fa60735d93c2e384b7037c3b9b4cecc04e2a730f2e35fc44db29b271
