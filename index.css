@@ -1,0 +1,336 @@
+import { useEffect, useState } from "react";
+import axios from "axios";
+import CryptoChart from "./CryptoChart";
+import { useNavigate } from "react-router-dom";
+import { Clipboard } from "lucide-react";
+import { motion } from "framer-motion";
+import BIP32Factory from "bip32";
+import * as ecc from 'tiny-secp256k1';
+import { useBitcoinPrices } from "./pricesApi";
+
+import ReceiveTransaction from "./ReceiveTransaction";
+
+export function Sidebar({ view, setView }) {
+  const items = [
+    { id: "dashboard", label: "Tokens" },
+    { id: "activity", label: "Activity" },
+    { id: "ai", label: "AI Advisor" },
+    { id: "settings", label: "Settings" },
+  ];
+
+  return (
+    <aside className="w-72 p-6 bg-[#0c0a09] border-r border-white/5 flex flex-col justify-between">
+      <div>
+        <div className="flex items-center gap-3 mb-10">
+          <div className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center font-bold">
+            BG
+          </div>
+          <h1 className="text-xl font-semibold">BlockGo</h1>
+        </div>
+
+        {items.map(item => (
+          <button
+            key={item.id}
+            onClick={() => setView(item.id)}
+            className={`w-full text-left px-4 py-3 rounded-xl mb-2 transition ${view === item.id
+              ? "bg-purple-600/20 text-purple-400"
+              : "text-neutral-400 hover:bg-white/5"
+              }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+
+function AssetRow({ asset }) {
+  const priceData = useBitcoinPrices(asset.clid);
+
+  return (
+    <div className="relative top-5">
+      <p className="text-sm text-neutral-400">
+        {priceData?.price_usd
+          ? `$${(asset.balance * priceData.price_usd).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+          : "Loading..."}
+      </p>
+    </div>
+  );
+}
+
+
+export function Dashboard({ assets, total, Address }) {
+  const navigate = useNavigate();
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [showReceiveModal, setShowReceiveModal] = useState(false);
+  const [isReceiveOpen, setIsReceiveOpen] = useState(false);
+  const copyToClipboard = (text) => {
+    if (text) {
+      navigator.clipboard.writeText(text);
+      alert("Address copied!");
+    }
+  };
+  
+  return (
+    <div className=" font-ui">
+      {/* HEADER */}
+      <div className="flex justify-between items-center font-sans">
+        <div>
+          <p className="text-xl text-neutral-400">Total Balance</p>
+          <h2 className="text-gray-100 text-4xl font-semibold mt-1">
+            ${total.toLocaleString()}
+          </h2>
+        </div>
+        <div className="flex gap-4  relative right-8" >
+          <button onClick={() => setShowSendModal(true)} className="flex hover:-translate-z-2 hover:scale-[1.01] inline-block px-6 py-2.5 bg-gray-100 rounded-xl font-heading text-black font-medium text-sm" role="button">
+            <svg fill="none" className="relative right-[7px] top-[2px]" viewBox="0 0 24 24" width="24px" height="24px" stroke-linecap="round" stroke-linejoin="round" class="_1wcex0uf _1wcex0ub _48j31a1az _48j31a1cl _1wcex0uh _1wcex0ud _48j31a484"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m10 14 1.086 3.802c.831 2.909 4.958 2.898 5.774-.015L20.04 6.424c.42-1.502-.963-2.886-2.465-2.465L6.213 7.14c-2.913.816-2.924 4.943-.015 5.774zm0 0 3-3"></path></svg>
+            <p className="text-xl  relative font-semibold top-[1px] ">Send</p>
+          </button>
+          <button
+            onClick={() => {
+              console.log("Receive button clicked!");
+              setIsReceiveOpen(true);
+            }}
+            className="flex hover:-translate-z-2 hover:scale-[1.01] inline-block px-6 py-2.5 bg-gray-100 rounded-xl font-heading text-black font-medium text-sm"
+          >
+            <svg fill="none" className="relative right-[9px] top-[2px]" viewBox="0 0 24 24" width="24px" height="24px" stroke-linecap="round" stroke-linejoin="round" class="_1wcex0uf _1wcex0ub _48j31a1az _48j31a1cl _1wcex0uh _1wcex0ud _48j31a484"><path fill="currentColor" fill-rule="evenodd" d="M5.5 6.1a.6.6 0 0 1 .6-.6h.8a.6.6 0 0 1 .6.6v.8a.6.6 0 0 1-.6.6h-.8a.6.6 0 0 1-.6-.6zM5.5 17.1a.6.6 0 0 1 .6-.6h.8a.6.6 0 0 1 .6.6v.8a.6.6 0 0 1-.6.6h-.8a.6.6 0 0 1-.6-.6zM16.5 6.1a.6.6 0 0 1 .6-.6h.8a.6.6 0 0 1 .6.6v.8a.6.6 0 0 1-.6.6h-.8a.6.6 0 0 1-.6-.6z" clip-rule="evenodd"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 16a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM14 5a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-3a2 2 0 0 1-2-2z"></path><path fill="currentColor" d="M13 14a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1zM13 20a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1zM19 20a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1zM19 14a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1zM16 17a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1z"></path></svg>
+            <p className="text-xl relative font-semibold top-[1px]">Receive</p>
+          </button>
+        </div>
+      </div>
+      {showSendModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="relative">
+            {/* Close Button */}
+            <button
+              onClick={() => setShowSendModal(false)}
+              className="absolute right-0 text-white hover:text-purple-400"
+            >
+               ✕
+            </button>
+            <SendTransaction />
+          </div>
+        </div>
+      )}
+      {isReceiveOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="relative">
+           { (<ReceiveTransaction
+              isOpen={isReceiveOpen}
+              onClose={() => setIsReceiveOpen(false)}
+            />)}
+          </div>
+        </div>
+      )}
+      <div className="grid grid-cols-5 gap-20">
+        {/* ASSETS LIST */}
+        <div className="col-span-3 space-y-6 font-sans">
+          <h3 className="text-xl">Assets</h3>
+          {assets.map(asset => (
+            <div
+              key={asset.symbol}
+              onClick={() => navigate(`/crypto/${asset.chain.toLowerCase()}/${asset.clid}/${asset.name}/${asset.symbol}/${asset.day}`)}
+              className="flex justify-between items-center w-full p-7 rounded-2xl bg-[#0c0a09] hover:bg-white/10 transition cursor-pointer border border-white/5"
+            >
+              <div className="flex items-center gap-4">
+                <img src={`https://files.coinswitch.co/public/coins/${asset.symbol.toLowerCase()}.png`} className="h-10" alt="" />
+                <p className="text-2xl font-bold">{asset.name}</p>
+              </div>
+              <div className="text-right  space-y-1">
+                <p className="text-xl font-medium">{asset.balance} {asset.symbol}</p>
+
+                <AssetRow asset={asset} />
+              </div>
+            </div>
+          ))}
+        </div>
+
+    
+        <div className="col-span-2 mt-12">
+          <div className="bg-[#0c0a09] border border-white/5 rounded-2xl p-5">
+            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-4">Your Wallets</h3>
+
+            
+            <div className="mb-4">
+              <p className="text-xs text-purple-400 mb-1">Solana</p>
+              <div className="flex items-center justify-between gap-2 bg-black/40 px-3 py-2 rounded-xl border border-white/5">
+                <span className="text-xs font-mono text-white truncate">
+                  {Address ? Address?.solana?.address : "Loading..."}
+                </span>
+                <button onClick={() => copyToClipboard(Address?.solana?.address)} className="text-gray-400 hover:text-white">
+                  <Clipboard size={14} />
+                </button>
+              </div>
+            </div>
+
+          
+            <div className="mb-4">
+              <p className="text-xs text-blue-400 mb-1">Ethereum</p>
+              <div className="flex items-center justify-between gap-2 bg-black/40 px-3 py-2 rounded-xl border border-white/5">
+                <span className="text-xs font-mono text-white truncate">
+                  {Address ? Address?.ethereum?.address : "Loading..."}
+                </span>
+                <button onClick={() => copyToClipboard(Address?.ethereum?.address)} className="text-gray-400 hover:text-white">
+                  <Clipboard size={14} />
+                </button>
+              </div>
+            </div>
+
+      
+            <div>
+              <p className="text-xs text-orange-400 mb-1">Bitcoin</p>
+              <div className="flex items-center justify-between gap-2 bg-black/40 px-3 py-2 rounded-xl border border-white/5">
+                <span className="text-xs font-mono text-white truncate">
+                  {Address ? Address?.bitcoin?.address : "Loading..."}
+                </span>
+                <button onClick={() => copyToClipboard(Address?.bitcoin?.address)} className="text-gray-400 hover:text-white">
+                  <Clipboard size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+export function Activity({ txs }) {
+  if (!txs.length) {
+    return <p className="text-neutral-400">No transactions yet</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {txs.map(tx => (
+        <div key={tx.id} className="p-4 bg-white/5 rounded-xl">
+          {tx.type} {tx.amount} {tx.asset}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
+
+export function AIView() {
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    setTimeout(() => {
+      setData({
+        sentiment: "Market sentiment is leaning toward greed",
+        strategy: "Hold ETH and stake stablecoins",
+      });
+    }, 800);
+  }, []);
+
+  if (!data) return <p className="text-neutral-400">Loading AI insights…</p>;
+
+  return (
+    <div className="space-y-4">
+      <p className="italic text-purple-400">"{data.sentiment}"</p>
+      <p>{data.strategy}</p>
+    </div>
+  );
+}
+
+
+export function Settings({ onLogout }) {
+  return (
+    <button
+      onClick={onLogout}
+      className="text-red-500 border border-red-500/30 px-6 py-3 rounded-xl font-semibold"
+    >
+      Sign out
+    </button>
+  );
+}
+
+
+
+
+export function Onboarding({ onCreate, onRestore }) {
+  const [showExistingOptions, setShowExistingOptions] = useState(false);
+  const [hasVault, setHasVault] = useState(false);
+  useEffect(() => {
+
+    const vault = localStorage.getItem("encrypted_wallet");
+    if (vault) {
+      setHasVault(true);
+    }
+  }, []);
+  return (
+    <motion.div
+      key={showExistingOptions ? "options" : "main"}
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ x: 0, opacity: 1 }}
+      transition={{ duration: 0.06, ease: [0.65, 0, 0.35, 1] }}
+      className="text-white"
+    >
+      <div className="fixed inset-0 bg-gradient-to-br from-black via-[#0c0a09] to-purple-950 flex items-center justify-center">
+        <div className="w-[380px] p-8 rounded-2xl bg-white/10 border border-white/10 text-center shadow-2xl">
+          <div className="w-14 h-14 mx-auto mb-5 rounded-xl bg-purple-600 flex items-center justify-center font-bold text-lg">
+            BG
+          </div>
+
+          <h2 className="text-2xl font-bold mb-2">
+            Welcome to BlockGo
+          </h2>
+
+          <p className="text-sm text-neutral-400 mb-8">
+            The most secure way to explore the multi-chain universe.
+          </p>
+
+          
+          {(!showExistingOptions && !hasVault) && (<button
+            onClick={() => {
+
+              onCreate();
+            }}
+            className="w-full py-3 bg-purple-600 hover:bg-purple-500 transition rounded-xl font-semibold mb-3"
+          >
+            Create a new wallet
+          </button>
+          )}
+ 
+          {!showExistingOptions && (
+
+            <button
+              onClick={() => setShowExistingOptions(true)}
+              className="w-full py-3 bg-purple-600 hover:bg-purple-500 transition rounded-xl text-sm"
+            >
+              I already have a wallet
+            </button>
+          )}
+ 
+          {showExistingOptions && (
+            <div className="mt-4 space-y-3">
+              {hasVault ? (
+                <button
+                  onClick={() => onRestore("email")}
+                  className="w-full py-3 bg-purple-600/90 hover:bg-purple-500 transition rounded-xl text-sm font-semibold"
+                >
+                  Login with Password
+                </button>
+              ) : (
+                <button
+                  onClick={() => onRestore("seed")}
+                  className="w-full py-3 bg-white/10 hover:bg-white/20 transition rounded-xl text-sm"
+                >
+                  Import with Seed Phrase
+                </button>
+              )}
+            </div>
+          )}
+
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
